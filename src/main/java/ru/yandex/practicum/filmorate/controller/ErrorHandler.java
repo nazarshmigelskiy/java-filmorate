@@ -39,6 +39,12 @@ public class ErrorHandler {
         log.warn("Не заполнены необходимые поля");
         return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
     }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, String>> handleUnexpected(Exception ex) {
+        log.warn("Непредвиденная ошибка");
+        return ResponseEntity.internalServerError().body(Map.of("error", ex.getMessage()));
+    }
 }
 
 

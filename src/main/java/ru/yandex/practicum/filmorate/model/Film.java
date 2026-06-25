@@ -16,7 +16,7 @@ public class Film {
     private String name;
     @Size(max = 200, message = "Максимальная длина символов - 200")
     private String description;
-    @MinReleaseDate
+    @MinReleaseDate(minDate = "1895-12-28")
     private LocalDate releaseDate;
     @Positive(message = "Длительность не может быть отрицательной")
     private Integer duration;

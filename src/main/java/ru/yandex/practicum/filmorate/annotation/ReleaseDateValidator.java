@@ -7,11 +7,16 @@ import java.time.LocalDate;
 
 public class ReleaseDateValidator implements ConstraintValidator<MinReleaseDate, LocalDate> {
 
-    private static final LocalDate MIN_DATE = LocalDate.of(1895, 12, 28);
+    private LocalDate minDate;
+
+    @Override
+    public void initialize(MinReleaseDate annotation) {
+        this.minDate = LocalDate.parse(annotation.minDate());
+    }
 
     @Override
     public boolean isValid(LocalDate date, ConstraintValidatorContext context) {
         if (date == null) return true;
-        return !date.isBefore(MIN_DATE);
+        return !date.isBefore(minDate);
     }
 }
