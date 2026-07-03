@@ -2,48 +2,58 @@ package ru.yandex.practicum.filmorate.controller;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import ru.yandex.practicum.filmorate.exception.ConditionsNotMetException;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
+import ru.yandex.practicum.filmorate.exception.ValidationException;
+import ru.yandex.practicum.filmorate.model.ErrorResponse;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestControllerAdvice
 public class ErrorHandler {
-
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, String>> handleValidation(MethodArgumentNotValidException ex) {
-        Map<String, String> errors = new HashMap<>();
-        ex.getBindingResult()
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    @ExceptionHandler
+    public ErrorResponse handleValidation(MethodArgumentNotValidException e) {
+        String description = e.getBindingResult()
                 .getFieldErrors()
-                .forEach(err -> {
-                    log.warn("Ошибка валидации — поле '{}': {}", err.getField(), err.getDefaultMessage());
-                    errors.put(err.getField(), err.getDefaultMessage());
-                });
-        return ResponseEntity.badRequest().body(errors);
+                .stream()
+                .peek(ex -> log.warn("Ошибка валидации — поле '{}': {}", ex.getField(), ex.getDefaultMessage()))
+                .map(ex -> ex.getField() + ": " + ex.getDefaultMessage())
+                .collect(Collectors.joining(", "));
+        return new ErrorResponse("Ошибка валидации", description);
     }
 
-    @ExceptionHandler(NotFoundException.class)
-    public ResponseEntity<Map<String, String>> handleNotFound(NotFoundException ex) {
-        log.warn("Объект не найден");
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", ex.getMessage()));
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    @ExceptionHandler
+    public ErrorResponse handleNotFound(NotFoundException e) {
+        log.warn("Объект не найден: {}", e.getMessage());
+        return new ErrorResponse("Объект не найден", e.getMessage());
     }
 
-    @ExceptionHandler(ConditionsNotMetException.class)
-    public ResponseEntity<Map<String, String>> handleConditionsNotMet(ConditionsNotMetException ex) {
-        log.warn("Не заполнены необходимые поля");
-        return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+    @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
+    @ExceptionHandler
+    public ErrorResponse handleConditionsNotMet(ConditionsNotMetException e) {
+        log.warn("Нарушена логика приложения: {}", e.getMessage());
+        return new ErrorResponse("Нарушение логики приложения", e.getMessage());
     }
 
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, String>> handleUnexpected(Exception ex) {
-        log.warn("Непредвиденная ошибка");
-        return ResponseEntity.internalServerError().body(Map.of("error", ex.getMessage()));
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    @ExceptionHandler
+    public ErrorResponse handleValidationException(ValidationException e) {
+        log.warn("Не заполнены необходимые поля: {}", e.getMessage());
+        return new ErrorResponse("Не заполнены необходимые поля", e.getMessage());
+    }
+
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    @ExceptionHandler
+    public ErrorResponse handleUnexpected(Exception e) {
+        log.error("Непредвиденная ошибка: {}", e.getMessage(), e);
+        return new ErrorResponse("Непредвиденная ошибка", e.getMessage());
     }
 }
 

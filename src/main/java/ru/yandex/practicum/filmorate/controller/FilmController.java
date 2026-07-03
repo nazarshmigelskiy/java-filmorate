@@ -1,53 +1,58 @@
 package ru.yandex.practicum.filmorate.controller;
 
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
-import ru.yandex.practicum.filmorate.exception.ConditionsNotMetException;
-import ru.yandex.practicum.filmorate.exception.NotFoundException;
+
 import ru.yandex.practicum.filmorate.model.Film;
 
+import ru.yandex.practicum.filmorate.service.FilmService;
+import ru.yandex.practicum.filmorate.storage.FilmStorage;
+
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
+
 
 @RestController
 @Slf4j
 @RequestMapping("/films")
+@RequiredArgsConstructor
 public class FilmController {
-    private final Map<Long, Film> films = new HashMap<>();
+    private final FilmStorage filmStorage;
+    private final FilmService filmService;
 
     @GetMapping
     public Collection<Film> getFilms() {
-        return films.values();
+        return filmStorage.getFilms();
     }
 
     @PostMapping
     public Film addFilm(@Valid @RequestBody Film film) {
-        film.setId(getNextId());
-        films.put(film.getId(), film);
-        log.info("Создан фильм с id= {}", film.getId());
-        return film;
+        return filmStorage.addFilm(film);
     }
 
     @PutMapping
     public Film update(@Valid @RequestBody Film film) {
-        if (film.getId() == null) throw new ConditionsNotMetException("Id должен быть указан");
-        if (films.containsKey(film.getId())) {
-            films.put(film.getId(), film);
-            log.info("Обновлена информация о фильме с id= {}", film.getId());
-            return film;
-        } else {
-            throw new NotFoundException("Фильм не найден");
-        }
+        return filmStorage.update(film);
     }
 
-    private long getNextId() {
-        long currentMaxId = films.keySet()
-                .stream()
-                .mapToLong(id -> id)
-                .max()
-                .orElse(0);
-        return ++currentMaxId;
+    @GetMapping("/{id}")
+    public Film getById(@PathVariable Long id) {
+        return filmStorage.getById(id);
+    }
+
+    @PutMapping("/{id}/like/{userId}")
+    public Film addLike(@PathVariable Long id, @PathVariable Long userId) {
+        return filmService.addLike(userId, id);
+    }
+
+    @DeleteMapping("/{id}/like/{userId}")
+    public Film deleteLike(@PathVariable Long id, @PathVariable Long userId) {
+        return filmService.removeLike(userId, id);
+    }
+
+    @GetMapping("/popular")
+    public Collection<Film> getMostLiked(@RequestParam(defaultValue = "10") int count) {
+        return filmService.getMostLikedFilms(count);
     }
 }
