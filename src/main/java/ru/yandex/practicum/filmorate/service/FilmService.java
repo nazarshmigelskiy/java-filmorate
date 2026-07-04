@@ -21,7 +21,8 @@ public class FilmService {
     public Film addLike(Long userId, Long filmId) {
         userStorage.getById(userId);
         Film film = storage.getById(filmId);
-        if (film.getLikes().contains(userId)) throw new ConditionsNotMetException("Пользователь уже оценил фильм.");
+        if (film.getLikes().contains(userId))
+            throw new ConditionsNotMetException(String.format("Пользователь с id: %s уже оценил фильм.", userId));
         film.getLikes().add(userId);
         log.info("Пользователь с id {} поставил лайк фильму с  id {}", userId, filmId);
         return film;
