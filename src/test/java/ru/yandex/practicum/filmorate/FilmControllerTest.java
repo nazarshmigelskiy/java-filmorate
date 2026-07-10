@@ -6,20 +6,31 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
+import ru.yandex.practicum.filmorate.controller.FilmController;
+import ru.yandex.practicum.filmorate.controller.UserController;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.model.Genre;
+import ru.yandex.practicum.filmorate.model.FilmGenre;
+import ru.yandex.practicum.filmorate.model.User;
+import ru.yandex.practicum.filmorate.service.FilmService;
+import ru.yandex.practicum.filmorate.service.UserService;
+import ru.yandex.practicum.filmorate.storage.InMemoryFilmStorage;
+import ru.yandex.practicum.filmorate.storage.InMemoryUserStorage;
 
 import java.time.LocalDate;
+import java.util.Set;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
-@AutoConfigureMockMvc
+@WebMvcTest(FilmController.class)
+@Import({InMemoryFilmStorage.class, InMemoryUserStorage.class, FilmService.class,
+        UserController.class, UserService.class})
 @DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
 class FilmControllerTest {
 
@@ -51,6 +62,7 @@ class FilmControllerTest {
         return mapper.readValue(response, Film.class);
     }
 
+    // ─── POST /films ───────────────────────────────────────────────────────────
 
     @Test
     @DisplayName("Создание валидного фильма")
@@ -61,6 +73,22 @@ class FilmControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.name").value("Тестовый фильм"));
+    }
+
+    @Test
+    @DisplayName("Создание фильма с жанрами")
+    void createFilm_withGenres() throws Exception {
+        Film film = validFilm();
+        Genre genre = new Genre();
+        genre.setId(FilmGenre.COMEDY.getId());
+        genre.setName(FilmGenre.COMEDY.getName());
+        film.setGenres(Set.of(genre));
+
+        mockMvc.perform(post("/films")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(film)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.genres").isArray());
     }
 
     @Test
@@ -162,14 +190,14 @@ class FilmControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
+    // ─── PUT /films ────────────────────────────────────────────────────────────
 
     @Test
     @DisplayName("Обновление без id")
     void updateFilm_noId() throws Exception {
-        Film film = validFilm();
         mockMvc.perform(put("/films")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(film)))
+                        .content(mapper.writeValueAsString(validFilm())))
                 .andExpect(status().isBadRequest());
     }
 
@@ -196,6 +224,7 @@ class FilmControllerTest {
                 .andExpect(jsonPath("$.name").value("Обновлённое название"));
     }
 
+    // ─── GET /films ────────────────────────────────────────────────────────────
 
     @Test
     @DisplayName("Получение фильма по id")
@@ -213,6 +242,14 @@ class FilmControllerTest {
                 .andExpect(status().isNotFound());
     }
 
+    @Test
+    @DisplayName("Некорректный id — отрицательный")
+    void getFilmById_negativeId() throws Exception {
+        mockMvc.perform(get("/films/-1"))
+                .andExpect(status().isBadRequest());
+    }
+
+    // ─── PUT /films/{id}/like/{userId} ────────────────────────────────────────
 
     @Test
     @DisplayName("Лайк несуществующего фильма")
@@ -229,6 +266,30 @@ class FilmControllerTest {
                 .andExpect(status().isNotFound());
     }
 
+    @Test
+    @DisplayName("Повторный лайк от того же пользователя")
+    void addLike_duplicate() throws Exception {
+        Film created = createFilm();
+
+        // создаём пользователя через POST /users
+        User user = new User();
+        user.setEmail("user@example.com");
+        user.setLogin("userlogin");
+        user.setName("Тест");
+        user.setBirthday(LocalDate.of(1990, 1, 1));
+
+        String response = mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(user)))
+                .andReturn().getResponse().getContentAsString();
+        User createdUser = mapper.readValue(response, User.class);
+
+        mockMvc.perform(put("/films/" + created.getId() + "/like/" + createdUser.getId()));
+        mockMvc.perform(put("/films/" + created.getId() + "/like/" + createdUser.getId()))
+                .andExpect(status().isUnprocessableEntity());
+    }
+
+    // ─── GET /films/popular ───────────────────────────────────────────────────
 
     @Test
     @DisplayName("Список популярных фильмов — дефолтный count")
@@ -242,5 +303,12 @@ class FilmControllerTest {
     void getPopular_customCount() throws Exception {
         mockMvc.perform(get("/films/popular?count=5"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("Некорректный count — отрицательный")
+    void getPopular_negativeCount() throws Exception {
+        mockMvc.perform(get("/films/popular?count=-1"))
+                .andExpect(status().isBadRequest());
     }
 }

@@ -63,4 +63,20 @@ public class UserController {
                              @PathVariable @Positive Long friendId) {
         return service.removeFriend(id, friendId);
     }
+
+    @PutMapping("/{id}/friends/{friendId}/accept")
+    public User acceptFriend(@PathVariable @Positive Long id,
+                             @PathVariable @Positive Long friendId) {
+        return service.acceptFriendship(id, friendId);
+    }
+
+    @GetMapping("/{id}/friends/pending")
+    public Collection<User> getFriendshipRequests(@PathVariable @Positive Long id) {
+        return service.getUserFriendRequestList(id);
+    }
+
+    @GetMapping("/{id}/friends/pending/sent")
+    public Collection<User> getSentFriendshipRequests(@PathVariable @Positive Long id) {
+        return service.getSentUserFriendRequestList(id);
+    }
 }
