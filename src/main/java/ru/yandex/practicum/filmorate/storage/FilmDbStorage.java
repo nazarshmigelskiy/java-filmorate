@@ -70,9 +70,9 @@ public class FilmDbStorage extends BaseStorage<Film> implements FilmStorage {
             return films;
         }
 
-        List<Long> filmIds = films.stream().
-                map(Film::getId).
-                toList();
+        List<Long> filmIds = films.stream()
+                .map(Film::getId)
+                .toList();
         Map<Long, Set<Genre>> genresByFilm = loadGenresForFilms(filmIds);
         Map<Long, Set<Long>> likesByFilm = loadLikesForFilms(filmIds);
 
