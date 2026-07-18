@@ -22,6 +22,7 @@ public class Film {
     private LocalDate releaseDate;
     @Positive(message = "Длительность не может быть отрицательной")
     private Integer duration;
+    private MPA mpa;
     private Set<Long> likes = new HashSet<>();
     private Set<Genre> genres = new HashSet<>();
 }

@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.service.UserService;
 import ru.yandex.practicum.filmorate.storage.UserStorage;
@@ -38,7 +39,7 @@ public class UserController {
 
     @GetMapping("/{id}")
     public User getById(@PathVariable @Positive Long id) {
-        return storage.getById(id);
+        return storage.getById(id).orElseThrow(() -> new NotFoundException("Пользователь не найден"));
     }
 
     @GetMapping("/{id}/friends")
@@ -62,21 +63,5 @@ public class UserController {
     public User deleteFriend(@PathVariable @Positive Long id,
                              @PathVariable @Positive Long friendId) {
         return service.removeFriend(id, friendId);
-    }
-
-    @PutMapping("/{id}/friends/{friendId}/accept")
-    public User acceptFriend(@PathVariable @Positive Long id,
-                             @PathVariable @Positive Long friendId) {
-        return service.acceptFriendship(id, friendId);
-    }
-
-    @GetMapping("/{id}/friends/pending")
-    public Collection<User> getFriendshipRequests(@PathVariable @Positive Long id) {
-        return service.getUserFriendRequestList(id);
-    }
-
-    @GetMapping("/{id}/friends/pending/sent")
-    public Collection<User> getSentFriendshipRequests(@PathVariable @Positive Long id) {
-        return service.getSentUserFriendRequestList(id);
     }
 }

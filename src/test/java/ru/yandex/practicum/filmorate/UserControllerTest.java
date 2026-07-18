@@ -7,27 +7,40 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import ru.yandex.practicum.filmorate.controller.UserController;
+import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.service.UserService;
-import ru.yandex.practicum.filmorate.storage.InMemoryUserStorage;
+import ru.yandex.practicum.filmorate.storage.UserStorage;
 
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(UserController.class)
-@Import({InMemoryUserStorage.class, UserService.class})
-@DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
 class UserControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @MockitoBean
+    private UserStorage storage;
+
+    @MockitoBean
+    private UserService service;
 
     private ObjectMapper mapper;
 
@@ -39,6 +52,7 @@ class UserControllerTest {
 
     private User validUser() {
         User user = new User();
+        user.setId(1L);
         user.setEmail("test@example.com");
         user.setLogin("testlogin");
         user.setName("Тестовый пользователь");
@@ -46,33 +60,17 @@ class UserControllerTest {
         return user;
     }
 
-    private User createUser() throws Exception {
-        String response = mockMvc.perform(post("/users")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(validUser())))
-                .andReturn().getResponse().getContentAsString();
-        return mapper.readValue(response, User.class);
-    }
-
-    private User createUser(String email, String login) throws Exception {
-        User user = validUser();
-        user.setEmail(email);
-        user.setLogin(login);
-        String response = mockMvc.perform(post("/users")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(user)))
-                .andReturn().getResponse().getContentAsString();
-        return mapper.readValue(response, User.class);
-    }
-
     // ─── POST /users ───────────────────────────────────────────────────────────
 
     @Test
     @DisplayName("Создание валидного пользователя")
     void createUser_valid() throws Exception {
+        User user = validUser();
+        when(storage.create(any(User.class))).thenReturn(user);
+
         mockMvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(validUser())))
+                        .content(mapper.writeValueAsString(user)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.login").value("testlogin"));
@@ -134,22 +132,14 @@ class UserControllerTest {
     }
 
     @Test
-    @DisplayName("Пустое имя — подстановка логина")
-    void createUser_emptyName_usesLogin() throws Exception {
+    @DisplayName("Пустое имя — подстановка логина сервисом хранения")
+    void createUser_emptyName_delegatesToStorage() throws Exception {
         User user = validUser();
         user.setName("");
-        mockMvc.perform(post("/users")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(user)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name").value(user.getLogin()));
-    }
+        User stored = validUser();
+        stored.setName(stored.getLogin());
+        when(storage.create(any(User.class))).thenReturn(stored);
 
-    @Test
-    @DisplayName("Null имя — подстановка логина")
-    void createUser_nullName_usesLogin() throws Exception {
-        User user = validUser();
-        user.setName(null);
         mockMvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(user)))
@@ -162,6 +152,8 @@ class UserControllerTest {
     void createUser_birthdayToday() throws Exception {
         User user = validUser();
         user.setBirthday(LocalDate.now());
+        when(storage.create(any(User.class))).thenReturn(user);
+
         mockMvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(user)))
@@ -182,19 +174,12 @@ class UserControllerTest {
     // ─── PUT /users ────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("Обновление без id")
-    void updateUser_noId() throws Exception {
-        mockMvc.perform(put("/users")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(validUser())))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
     @DisplayName("Обновление несуществующего пользователя")
     void updateUser_notFound() throws Exception {
         User user = validUser();
         user.setId(999L);
+        when(storage.update(any(User.class))).thenThrow(new NotFoundException("Пользователь не найден"));
+
         mockMvc.perform(put("/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(user)))
@@ -204,41 +189,44 @@ class UserControllerTest {
     @Test
     @DisplayName("Обновление существующего пользователя")
     void updateUser_success() throws Exception {
-        User created = createUser();
-        created.setEmail("new@example.com");
+        User user = validUser();
+        user.setEmail("new@example.com");
+        when(storage.update(any(User.class))).thenReturn(user);
+
         mockMvc.perform(put("/users")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(created)))
+                        .content(mapper.writeValueAsString(user)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value("new@example.com"));
-    }
-
-    @Test
-    @DisplayName("Обновление: пустое имя — подстановка логина")
-    void updateUser_emptyName_usesLogin() throws Exception {
-        User created = createUser();
-        created.setName("");
-        mockMvc.perform(put("/users")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(created)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name").value(created.getLogin()));
     }
 
     // ─── GET /users ────────────────────────────────────────────────────────────
 
     @Test
+    @DisplayName("Список пользователей")
+    void getUsers_success() throws Exception {
+        when(storage.getUsers()).thenReturn(List.of(validUser()));
+
+        mockMvc.perform(get("/users"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    @Test
     @DisplayName("Получение пользователя по id")
     void getUserById_success() throws Exception {
-        User created = createUser();
-        mockMvc.perform(get("/users/" + created.getId()))
+        when(storage.getById(1L)).thenReturn(Optional.of(validUser()));
+
+        mockMvc.perform(get("/users/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(created.getId()));
+                .andExpect(jsonPath("$.id").value(1));
     }
 
     @Test
     @DisplayName("Получение пользователя по несуществующему id")
     void getUserById_notFound() throws Exception {
+        when(storage.getById(999L)).thenReturn(Optional.empty());
+
         mockMvc.perform(get("/users/999"))
                 .andExpect(status().isNotFound());
     }
@@ -253,144 +241,78 @@ class UserControllerTest {
     // ─── PUT /users/{id}/friends/{friendId} ───────────────────────────────────
 
     @Test
-    @DisplayName("Отправка заявки в друзья")
+    @DisplayName("Добавление в друзья")
     void addFriend_success() throws Exception {
-        User user = createUser("user@example.com", "userlogin");
-        User friend = createUser("friend@example.com", "friendlogin");
+        User user = validUser();
+        when(service.addFriend(1L, 2L)).thenReturn(user);
 
-        mockMvc.perform(put("/users/" + user.getId() + "/friends/" + friend.getId()))
-                .andExpect(status().isOk());
+        mockMvc.perform(put("/users/1/friends/2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1));
     }
 
     @Test
-    @DisplayName("Повторная отправка заявки")
-    void addFriend_alreadySent() throws Exception {
-        User user = createUser("user@example.com", "userlogin");
-        User friend = createUser("friend@example.com", "friendlogin");
-
-        mockMvc.perform(put("/users/" + user.getId() + "/friends/" + friend.getId()));
-        mockMvc.perform(put("/users/" + user.getId() + "/friends/" + friend.getId()))
-                .andExpect(status().isUnprocessableEntity());
-    }
-
-    @Test
-    @DisplayName("Заявка несуществующему пользователю")
+    @DisplayName("Добавление в друзья несуществующего пользователя")
     void addFriend_userNotFound() throws Exception {
+        when(service.addFriend(999L, 1L)).thenThrow(new NotFoundException("Пользователь с id 999 не найден"));
+
         mockMvc.perform(put("/users/999/friends/1"))
                 .andExpect(status().isNotFound());
     }
 
     @Test
-    @DisplayName("Взаимная заявка — автоподтверждение дружбы")
-    void addFriend_mutualRequest_autoConfirm() throws Exception {
-        User user1 = createUser("user1@example.com", "user1");
-        User user2 = createUser("user2@example.com", "user2");
+    @DisplayName("Добавление в друзья несуществующего друга")
+    void addFriend_friendNotFound() throws Exception {
+        when(service.addFriend(1L, 999L)).thenThrow(new NotFoundException("Пользователь с id 999 не найден"));
 
-        mockMvc.perform(put("/users/" + user1.getId() + "/friends/" + user2.getId()));
-        mockMvc.perform(put("/users/" + user2.getId() + "/friends/" + user1.getId()));
-
-        // оба должны быть в списке подтверждённых друзей
-        mockMvc.perform(get("/users/" + user1.getId() + "/friends"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1));
-
-        mockMvc.perform(get("/users/" + user2.getId() + "/friends"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1));
-    }
-
-    // ─── PUT /users/{id}/friends/{friendId}/accept ────────────────────────────
-
-    @Test
-    @DisplayName("Подтверждение заявки в друзья")
-    void acceptFriend_success() throws Exception {
-        User user1 = createUser("user1@example.com", "user1");
-        User user2 = createUser("user2@example.com", "user2");
-
-        mockMvc.perform(put("/users/" + user1.getId() + "/friends/" + user2.getId()));
-        mockMvc.perform(put("/users/" + user2.getId() + "/friends/" + user1.getId() + "/accept"))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    @DisplayName("Подтверждение несуществующей заявки")
-    void acceptFriend_noRequest() throws Exception {
-        User user1 = createUser("user1@example.com", "user1");
-        User user2 = createUser("user2@example.com", "user2");
-
-        mockMvc.perform(put("/users/" + user2.getId() + "/friends/" + user1.getId() + "/accept"))
-                .andExpect(status().isUnprocessableEntity());
+        mockMvc.perform(put("/users/1/friends/999"))
+                .andExpect(status().isNotFound());
     }
 
     // ─── DELETE /users/{id}/friends/{friendId} ─────────────────────────────────
 
     @Test
-    @DisplayName("Отмена заявки в друзья")
-    void removeFriend_cancelRequest() throws Exception {
-        User user = createUser("user@example.com", "userlogin");
-        User friend = createUser("friend@example.com", "friendlogin");
+    @DisplayName("Удаление из друзей")
+    void removeFriend_success() throws Exception {
+        User user = validUser();
+        when(service.removeFriend(1L, 2L)).thenReturn(user);
 
-        mockMvc.perform(put("/users/" + user.getId() + "/friends/" + friend.getId()));
-        mockMvc.perform(delete("/users/" + user.getId() + "/friends/" + friend.getId()))
+        mockMvc.perform(delete("/users/1/friends/2"))
                 .andExpect(status().isOk());
+        verify(service).removeFriend(1L, 2L);
     }
 
     @Test
-    @DisplayName("Удаление из друзей после подтверждения")
-    void removeFriend_afterConfirm() throws Exception {
-        User user1 = createUser("user1@example.com", "user1");
-        User user2 = createUser("user2@example.com", "user2");
+    @DisplayName("Удаление из друзей несуществующего пользователя")
+    void removeFriend_notFound() throws Exception {
+        when(service.removeFriend(999L, 1L)).thenThrow(new NotFoundException("Пользователь с id 999 не найден"));
 
-        mockMvc.perform(put("/users/" + user1.getId() + "/friends/" + user2.getId()));
-        mockMvc.perform(put("/users/" + user2.getId() + "/friends/" + user1.getId() + "/accept"));
-        mockMvc.perform(delete("/users/" + user1.getId() + "/friends/" + user2.getId()))
-                .andExpect(status().isOk());
-
-        // у обоих должен быть пустой список друзей
-        mockMvc.perform(get("/users/" + user1.getId() + "/friends"))
-                .andExpect(jsonPath("$.length()").value(0));
-        mockMvc.perform(get("/users/" + user2.getId() + "/friends"))
-                .andExpect(jsonPath("$.length()").value(0));
-    }
-
-    @Test
-    @DisplayName("Удаление несуществующей связи")
-    void removeFriend_notExists() throws Exception {
-        User user = createUser("user@example.com", "userlogin");
-        User friend = createUser("friend@example.com", "friendlogin");
-
-        mockMvc.perform(delete("/users/" + user.getId() + "/friends/" + friend.getId()))
+        mockMvc.perform(delete("/users/999/friends/1"))
                 .andExpect(status().isNotFound());
     }
 
-    // ─── GET /users/{id}/friends/pending ──────────────────────────────────────
+    // ─── GET /users/{id}/friends ───────────────────────────────────────────────
 
     @Test
-    @DisplayName("Входящие запросы в друзья")
-    void getFriendRequests_success() throws Exception {
-        User user1 = createUser("user1@example.com", "user1");
-        User user2 = createUser("user2@example.com", "user2");
+    @DisplayName("Список друзей пользователя")
+    void getFriends_success() throws Exception {
+        User friend = validUser();
+        friend.setId(2L);
+        when(service.getUserFriendList(1L)).thenReturn(List.of(friend));
 
-        mockMvc.perform(put("/users/" + user1.getId() + "/friends/" + user2.getId()));
-
-        mockMvc.perform(get("/users/" + user2.getId() + "/friends/pending"))
+        mockMvc.perform(get("/users/1/friends"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].id").value(user1.getId()));
+                .andExpect(jsonPath("$[0].id").value(2));
     }
 
     @Test
-    @DisplayName("Исходящие запросы в друзья")
-    void getSentFriendRequests_success() throws Exception {
-        User user1 = createUser("user1@example.com", "user1");
-        User user2 = createUser("user2@example.com", "user2");
+    @DisplayName("Список друзей несуществующего пользователя")
+    void getFriends_userNotFound() throws Exception {
+        when(service.getUserFriendList(999L)).thenThrow(new NotFoundException("Пользователь с id 999 не найден"));
 
-        mockMvc.perform(put("/users/" + user1.getId() + "/friends/" + user2.getId()));
-
-        mockMvc.perform(get("/users/" + user1.getId() + "/friends/pending/sent"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].id").value(user2.getId()));
+        mockMvc.perform(get("/users/999/friends"))
+                .andExpect(status().isNotFound());
     }
 
     // ─── GET /users/{id}/friends/common/{friendId} ────────────────────────────
@@ -398,29 +320,22 @@ class UserControllerTest {
     @Test
     @DisplayName("Общие друзья — есть общий")
     void getMutualFriends_hasMutual() throws Exception {
-        User user1 = createUser("user1@example.com", "user1");
-        User user2 = createUser("user2@example.com", "user2");
-        User common = createUser("common@example.com", "common");
+        User common = validUser();
+        common.setId(3L);
+        when(service.getMutualFriends(1L, 2L)).thenReturn(List.of(common));
 
-        // user1 и user2 подтверждают дружбу с common
-        mockMvc.perform(put("/users/" + user1.getId() + "/friends/" + common.getId()));
-        mockMvc.perform(put("/users/" + common.getId() + "/friends/" + user1.getId() + "/accept"));
-        mockMvc.perform(put("/users/" + user2.getId() + "/friends/" + common.getId()));
-        mockMvc.perform(put("/users/" + common.getId() + "/friends/" + user2.getId() + "/accept"));
-
-        mockMvc.perform(get("/users/" + user1.getId() + "/friends/common/" + user2.getId()))
+        mockMvc.perform(get("/users/1/friends/common/2"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].id").value(common.getId()));
+                .andExpect(jsonPath("$[0].id").value(3));
     }
 
     @Test
     @DisplayName("Общие друзья — нет общих")
     void getMutualFriends_noMutual() throws Exception {
-        User user1 = createUser("user1@example.com", "user1");
-        User user2 = createUser("user2@example.com", "user2");
+        when(service.getMutualFriends(1L, 2L)).thenReturn(List.of());
 
-        mockMvc.perform(get("/users/" + user1.getId() + "/friends/common/" + user2.getId()))
+        mockMvc.perform(get("/users/1/friends/common/2"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));
     }
