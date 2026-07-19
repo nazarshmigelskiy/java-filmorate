@@ -1,6 +1,7 @@
 package ru.yandex.practicum.filmorate.storage;
 
 import org.springframework.context.annotation.Primary;
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -8,6 +9,8 @@ import ru.yandex.practicum.filmorate.dal.GenreRowMapper;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Genre;
 
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.*;
 
 @Repository
@@ -69,13 +72,11 @@ public class FilmDbStorage extends BaseStorage<Film> implements FilmStorage {
         if (films.isEmpty()) {
             return films;
         }
-
         List<Long> filmIds = films.stream()
                 .map(Film::getId)
                 .toList();
         Map<Long, Set<Genre>> genresByFilm = loadGenresForFilms(filmIds);
         Map<Long, Set<Long>> likesByFilm = loadLikesForFilms(filmIds);
-
         for (Film film : films) {
             film.setGenres(genresByFilm.getOrDefault(film.getId(), new LinkedHashSet<>()));
             film.setLikes(likesByFilm.getOrDefault(film.getId(), new HashSet<>()));
@@ -127,9 +128,19 @@ public class FilmDbStorage extends BaseStorage<Film> implements FilmStorage {
         if (film.getGenres() == null || film.getGenres().isEmpty()) {
             return;
         }
-        for (Genre genre : film.getGenres()) {
-            jdbc.update(INSERT_GENRE_QUERY, film.getId(), genre.getId());
-        }
+        List<Genre> genres = new ArrayList<>(film.getGenres());
+        jdbc.batchUpdate(INSERT_GENRE_QUERY, new BatchPreparedStatementSetter() {
+            @Override
+            public void setValues(PreparedStatement ps, int i) throws SQLException {
+                ps.setLong(1, film.getId());
+                ps.setLong(2, genres.get(i).getId());
+            }
+
+            @Override
+            public int getBatchSize() {
+                return genres.size();
+            }
+        });
     }
 
     private Set<Genre> loadGenres(Long filmId) {
@@ -152,10 +163,16 @@ public class FilmDbStorage extends BaseStorage<Film> implements FilmStorage {
 
     public List<Film> getMostLiked(int count) {
         List<Film> films = findMany(GET_POPULAR_QUERY, count);
-        films.forEach(f -> {
-            f.setGenres(loadGenres(f.getId()));
-            f.setLikes(loadLikes(f.getId()));
-        });
+        if (films.isEmpty()) {
+            return films;
+        }
+        List<Long> filmIds = films.stream().map(Film::getId).toList();
+        Map<Long, Set<Genre>> genresByFilm = loadGenresForFilms(filmIds);
+        Map<Long, Set<Long>> likesByFilm = loadLikesForFilms(filmIds);
+        for (Film film : films) {
+            film.setGenres(genresByFilm.getOrDefault(film.getId(), new LinkedHashSet<>()));
+            film.setLikes(likesByFilm.getOrDefault(film.getId(), new HashSet<>()));
+        }
         return films;
     }
 
