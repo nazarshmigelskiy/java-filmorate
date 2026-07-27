@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.Film;
 
 import ru.yandex.practicum.filmorate.service.FilmService;
@@ -30,17 +31,19 @@ public class FilmController {
 
     @PostMapping
     public Film addFilm(@Valid @RequestBody Film film) {
+        filmService.checkGenresAndMpa(film);
         return filmStorage.addFilm(film);
     }
 
     @PutMapping
     public Film update(@Valid @RequestBody Film film) {
+        filmService.checkGenresAndMpa(film);
         return filmStorage.update(film);
     }
 
     @GetMapping("/{id}")
     public Film getById(@PathVariable @Positive Long id) {
-        return filmStorage.getById(id);
+        return filmStorage.getById(id).orElseThrow(() -> new NotFoundException("Фильм не найден."));
     }
 
     @PutMapping("/{id}/like/{userId}")
