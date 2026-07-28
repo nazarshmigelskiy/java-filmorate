@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.UserStorage;
+
 import java.util.List;
 
 
@@ -36,6 +37,11 @@ public class UserService {
         return storage.getFriends(id);
     }
 
+    public void deleteUser(Long id) {
+        getUserOrThrow(id);
+        storage.deleteUser(id);
+    }
+
     public List<User> getMutualFriends(Long userId, Long friendId) {
         getUserOrThrow(userId);
         getUserOrThrow(friendId);
@@ -46,4 +52,5 @@ public class UserService {
         return storage.getById(id)
                 .orElseThrow(() -> new NotFoundException("Пользователь с id " + id + " не найден"));
     }
+
 }

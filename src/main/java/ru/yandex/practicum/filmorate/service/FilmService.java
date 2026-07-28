@@ -42,6 +42,12 @@ public class FilmService {
         return film;
     }
 
+    public void deleteFilm(Long id) {
+        storage.getById(id)
+                .orElseThrow(() -> new NotFoundException(String.format("Фильм с id %d не найден", id)));
+        storage.deleteFilm(id);
+    }
+
     public Collection<Film> getMostLikedFilms(int count) {
         return storage.getMostLiked(count);
     }
