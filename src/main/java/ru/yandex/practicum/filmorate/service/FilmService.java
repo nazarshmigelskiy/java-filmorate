@@ -5,8 +5,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.ConditionsNotMetException;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
+import ru.yandex.practicum.filmorate.exception.ValidationException;
+import ru.yandex.practicum.filmorate.model.Director;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Genre;
+import ru.yandex.practicum.filmorate.storage.DirectorStorage;
 import ru.yandex.practicum.filmorate.storage.FilmStorage;
 import ru.yandex.practicum.filmorate.storage.GenreStorage;
 import ru.yandex.practicum.filmorate.storage.MPAStorage;
@@ -22,6 +25,7 @@ public class FilmService {
     private final UserStorage userStorage;
     private final MPAStorage mpaStorage;
     private final GenreStorage genreStorage;
+    private final DirectorStorage directorStorage;
 
     public Film addLike(Long userId, Long filmId) {
         userStorage.getById(userId);
@@ -64,4 +68,25 @@ public class FilmService {
             }
         }
     }
+
+    public void checkDirectors(Film film) {
+        if (film.getDirectors() != null) {
+            for (Director director : film.getDirectors()) {
+                directorStorage.getById(director.getId())
+                        .orElseThrow(() -> new NotFoundException("Режиссер с id " + director.getId() + " не найден"));
+            }
+        }
+    }
+
+    public Collection<Film> getFilmsByDirector(Long directorId, String sortBy) {
+        if (sortBy != null
+                && !sortBy.equalsIgnoreCase("year")
+                && !sortBy.equalsIgnoreCase("likes")) {
+            throw new ValidationException("sortBy может быть только 'year' или 'likes'");
+        }
+        directorStorage.getById(directorId)
+                .orElseThrow(() -> new NotFoundException("Режиссёр с id " + directorId + " не найден"));
+        return storage.getFilmsByDirector(directorId, sortBy);
+    }
 }
+
