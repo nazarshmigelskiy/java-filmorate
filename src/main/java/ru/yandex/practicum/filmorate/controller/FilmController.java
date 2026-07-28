@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -50,6 +51,12 @@ public class FilmController {
     public Film addLike(@PathVariable @Positive Long id,
                         @PathVariable @Positive Long userId) {
         return filmService.addLike(userId, id);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteFilm(@PathVariable @Positive Long id) {
+        filmService.deleteFilm(id);
     }
 
     @DeleteMapping("/{id}/like/{userId}")

@@ -26,6 +26,8 @@ public class FilmDbStorage extends BaseStorage<Film> implements FilmStorage {
     private static final String INSERT_QUERY =
             "INSERT INTO films (name, description, release_date, duration, mpa_id) " +
                     "VALUES (?, ?, ?, ?, ?)";
+    private static final String DELETE_QUERY =
+            "DELETE FROM films WHERE id = ?";
     private static final String UPDATE_QUERY =
             "UPDATE films SET name = ?, description = ?, release_date = ?, " +
                     "duration = ?, mpa_id = ? WHERE id = ?";
@@ -235,5 +237,7 @@ public class FilmDbStorage extends BaseStorage<Film> implements FilmStorage {
         return setLikesAndGenresForFilms(films);
     }
 
-
+    public void deleteFilm(Long id) {
+        delete(DELETE_QUERY, id);
+    }
 }

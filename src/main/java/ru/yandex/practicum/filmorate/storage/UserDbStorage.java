@@ -15,6 +15,8 @@ import java.util.Optional;
 public class UserDbStorage extends BaseStorage<User> implements UserStorage {
     private static final String FIND_ALL_QUERY =
             "SELECT * FROM users";
+    private static final String DELETE_QUERY =
+            "DELETE FROM users WHERE id = ?";
     private static final String FIND_BY_ID_QUERY =
             "SELECT * FROM users WHERE id = ?";
     private static final String INSERT_QUERY =
@@ -97,6 +99,10 @@ public class UserDbStorage extends BaseStorage<User> implements UserStorage {
     @Override
     public List<User> getMutualFriends(Long userId, Long friendId) {
         return findMany(GET_MUTUAL_FRIENDS_QUERY, userId, friendId);
+    }
+
+    public void deleteUser(Long id) {
+        delete(DELETE_QUERY, id);
     }
 
 }
