@@ -98,4 +98,5 @@ public class UserDbStorage extends BaseStorage<User> implements UserStorage {
     public List<User> getMutualFriends(Long userId, Long friendId) {
         return findMany(GET_MUTUAL_FRIENDS_QUERY, userId, friendId);
     }
+
 }

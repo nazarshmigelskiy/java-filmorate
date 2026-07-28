@@ -58,6 +58,23 @@ public class FilmDbStorage extends BaseStorage<Film> implements FilmStorage {
     private static final String GET_ALL_LIKES_QUERY =
             "SELECT film_id, user_id FROM likes WHERE film_id IN (%s)";
 
+    private static final String FIND_SIMILAR_USER_QUERY =
+            "SELECT l2.user_id " +
+                    "FROM likes l1 " +
+                    "JOIN likes l2 ON l1.film_id = l2.film_id AND l1.user_id != l2.user_id " +
+                    "WHERE l1.user_id = ? " +
+                    "GROUP BY l2.user_id " +
+                    "ORDER BY COUNT(*) DESC " +
+                    "LIMIT 1";
+    private static final String RECOMMENDATIONS_QUERY =
+            "SELECT f.*, m.name AS mpa_name " +
+                    "FROM films f " +
+                    "LEFT JOIN mpa m ON f.mpa_id = m.id " +
+                    "WHERE f.id IN " +
+                    "(SELECT film_id FROM likes WHERE user_id = ?) " +
+                    "AND f.id NOT IN " +
+                    "(SELECT film_id FROM likes WHERE user_id = ?)";
+
     private final GenreRowMapper genreMapper;
 
 
@@ -72,16 +89,7 @@ public class FilmDbStorage extends BaseStorage<Film> implements FilmStorage {
         if (films.isEmpty()) {
             return films;
         }
-        List<Long> filmIds = films.stream()
-                .map(Film::getId)
-                .toList();
-        Map<Long, Set<Genre>> genresByFilm = loadGenresForFilms(filmIds);
-        Map<Long, Set<Long>> likesByFilm = loadLikesForFilms(filmIds);
-        for (Film film : films) {
-            film.setGenres(genresByFilm.getOrDefault(film.getId(), new LinkedHashSet<>()));
-            film.setLikes(likesByFilm.getOrDefault(film.getId(), new HashSet<>()));
-        }
-        return films;
+        return setLikesAndGenresForFilms(films);
     }
 
     @Override
@@ -166,14 +174,7 @@ public class FilmDbStorage extends BaseStorage<Film> implements FilmStorage {
         if (films.isEmpty()) {
             return films;
         }
-        List<Long> filmIds = films.stream().map(Film::getId).toList();
-        Map<Long, Set<Genre>> genresByFilm = loadGenresForFilms(filmIds);
-        Map<Long, Set<Long>> likesByFilm = loadLikesForFilms(filmIds);
-        for (Film film : films) {
-            film.setGenres(genresByFilm.getOrDefault(film.getId(), new LinkedHashSet<>()));
-            film.setLikes(likesByFilm.getOrDefault(film.getId(), new HashSet<>()));
-        }
-        return films;
+        return setLikesAndGenresForFilms(films);
     }
 
     private Map<Long, Set<Genre>> loadGenresForFilms(List<Long> filmIds) {
@@ -210,4 +211,29 @@ public class FilmDbStorage extends BaseStorage<Film> implements FilmStorage {
 
         return result;
     }
+
+    private List<Film> setLikesAndGenresForFilms(List<Film> films) {
+        List<Long> filmIds = films.stream()
+                .map(Film::getId)
+                .toList();
+        Map<Long, Set<Genre>> genresByFilm = loadGenresForFilms(filmIds);
+        Map<Long, Set<Long>> likesByFilm = loadLikesForFilms(filmIds);
+        for (Film film : films) {
+            film.setGenres(genresByFilm.getOrDefault(film.getId(), new LinkedHashSet<>()));
+            film.setLikes(likesByFilm.getOrDefault(film.getId(), new HashSet<>()));
+        }
+        return films;
+    }
+
+    public List<Film> getRecommendations(Long userId) {
+        List<Long> similar = jdbc.queryForList(FIND_SIMILAR_USER_QUERY, Long.class, userId);
+        if (similar.isEmpty()) {
+            return List.of();
+        }
+        Long similarUserId = similar.getFirst();
+        List<Film> films = findMany(RECOMMENDATIONS_QUERY, similarUserId, userId);
+        return setLikesAndGenresForFilms(films);
+    }
+
+
 }

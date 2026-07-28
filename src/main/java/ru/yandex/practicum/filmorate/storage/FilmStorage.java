@@ -19,4 +19,6 @@ public interface FilmStorage {
     void removeLike(Long filmId, Long userId);
 
     Collection<Film> getMostLiked(int count);
+
+    Collection<Film> getRecommendations(Long userId);
 }
