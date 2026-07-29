@@ -28,13 +28,8 @@ import java.util.Set;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -371,21 +366,21 @@ class FilmControllerTest {
     @Test
     @DisplayName("Список популярных фильмов — дефолтный count")
     void getPopular_defaultCount() throws Exception {
-        when(filmService.getMostLikedFilms(anyInt())).thenReturn(List.of(validFilm()));
+        when(filmService.getMostLikedFilms(anyInt(), any(), any())).thenReturn(List.of(validFilm()));
 
         mockMvc.perform(get("/films/popular"))
                 .andExpect(status().isOk());
-        verify(filmService).getMostLikedFilms(10);
+        verify(filmService).getMostLikedFilms(10, null, null);
     }
 
     @Test
     @DisplayName("Список популярных фильмов — кастомный count")
     void getPopular_customCount() throws Exception {
-        when(filmService.getMostLikedFilms(anyInt())).thenReturn(List.of(validFilm()));
+        when(filmService.getMostLikedFilms(anyInt(), any(), any())).thenReturn(List.of(validFilm()));
 
         mockMvc.perform(get("/films/popular?count=5"))
                 .andExpect(status().isOk());
-        verify(filmService).getMostLikedFilms(5);
+        verify(filmService).getMostLikedFilms(5, null, null);
     }
 
     @Test
@@ -393,7 +388,37 @@ class FilmControllerTest {
     void getPopular_negativeCount() throws Exception {
         mockMvc.perform(get("/films/popular?count=-1"))
                 .andExpect(status().isBadRequest());
-        verify(filmService, never()).getMostLikedFilms(anyInt());
+        verify(filmService, never()).getMostLikedFilms(anyInt(), any(), any());
+    }
+
+    @Test
+    @DisplayName("Популярные с фильтром по жанру")
+    void getPopular_withGenreId() throws Exception {
+        when(filmService.getMostLikedFilms(anyInt(), any(), any())).thenReturn(List.of(validFilm()));
+
+        mockMvc.perform(get("/films/popular?genreId=1"))
+                .andExpect(status().isOk());
+        verify(filmService).getMostLikedFilms(10, 1L, null);
+    }
+
+    @Test
+    @DisplayName("Популярные с фильтром по году")
+    void getPopular_withYear() throws Exception {
+        when(filmService.getMostLikedFilms(anyInt(), any(), any())).thenReturn(List.of(validFilm()));
+
+        mockMvc.perform(get("/films/popular?year=2000"))
+                .andExpect(status().isOk());
+        verify(filmService).getMostLikedFilms(10, null, 2000);
+    }
+
+    @Test
+    @DisplayName("Популярные с фильтром по жанру и году")
+    void getPopular_withGenreIdAndYear() throws Exception {
+        when(filmService.getMostLikedFilms(anyInt(), any(), any())).thenReturn(List.of(validFilm()));
+
+        mockMvc.perform(get("/films/popular?genreId=1&year=2000"))
+                .andExpect(status().isOk());
+        verify(filmService).getMostLikedFilms(10, 1L, 2000);
     }
 
     // ─── GET /films/director/{directorId} ─────────────────────────────────────

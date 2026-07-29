@@ -52,8 +52,8 @@ public class FilmService {
         storage.deleteFilm(id);
     }
 
-    public Collection<Film> getMostLikedFilms(int count) {
-        return storage.getMostLiked(count);
+    public Collection<Film> getMostLikedFilms(int count, Long genreId, Integer year) {
+        return storage.getMostLiked(count, genreId, year);
     }
 
     public void checkGenresAndMpa(Film film) {
