@@ -7,13 +7,16 @@ import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabas
 import org.springframework.boot.test.autoconfigure.jdbc.JdbcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.annotation.DirtiesContext;
+import ru.yandex.practicum.filmorate.dal.DirectorRowMapper;
 import ru.yandex.practicum.filmorate.dal.FilmRowMapper;
 import ru.yandex.practicum.filmorate.dal.GenreRowMapper;
 import ru.yandex.practicum.filmorate.dal.UserRowMapper;
+import ru.yandex.practicum.filmorate.model.Director;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.model.MPA;
 import ru.yandex.practicum.filmorate.model.User;
+import ru.yandex.practicum.filmorate.storage.DirectorDbStorage;
 import ru.yandex.practicum.filmorate.storage.FilmDbStorage;
 import ru.yandex.practicum.filmorate.storage.UserDbStorage;
 
@@ -25,7 +28,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @JdbcTest
 @Import({FilmDbStorage.class, FilmRowMapper.class, GenreRowMapper.class,
-        UserDbStorage.class, UserRowMapper.class})
+        UserDbStorage.class, UserRowMapper.class,
+        DirectorDbStorage.class, DirectorRowMapper.class})
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
 class FilmDbStorageTest {
@@ -34,6 +38,8 @@ class FilmDbStorageTest {
     private FilmDbStorage filmStorage;
     @Autowired
     private UserDbStorage userStorage;
+    @Autowired
+    private DirectorDbStorage directorStorage;
 
     private Film makeFilm() {
         Film film = new Film();
@@ -144,5 +150,71 @@ class FilmDbStorageTest {
 
         assertThat(popular).isNotEmpty();
         assertThat(popular.get(0).getId()).isEqualTo(film2.getId());
+    }
+
+    @Test
+    @DisplayName("Создание фильма с режиссёрами")
+    void createFilmWithDirectors() {
+        Director director = directorStorage.create(makeDirector());
+
+        Film film = makeFilm();
+        film.setDirectors(Set.of(director));
+        Film created = filmStorage.addFilm(film);
+
+        assertThat(filmStorage.getById(created.getId()))
+                .isPresent()
+                .hasValueSatisfying(f -> assertThat(f.getDirectors())
+                        .extracting(Director::getId)
+                        .containsExactly(director.getId()));
+    }
+
+    @Test
+    @DisplayName("Фильмы режиссёра — сортировка по году")
+    void getFilmsByDirector_sortedByYear() {
+        Director director = directorStorage.create(makeDirector());
+
+        Film film1 = makeFilm();
+        film1.setReleaseDate(LocalDate.of(2010, 1, 1));
+        film1.setDirectors(Set.of(director));
+        filmStorage.addFilm(film1);
+
+        Film film2 = makeFilm();
+        film2.setReleaseDate(LocalDate.of(2000, 1, 1));
+        film2.setDirectors(Set.of(director));
+        filmStorage.addFilm(film2);
+
+        List<Film> films = filmStorage.getFilmsByDirector(director.getId(), "year");
+
+        assertThat(films).hasSize(2);
+        assertThat(films.get(0).getId()).isEqualTo(film2.getId());
+        assertThat(films.get(1).getId()).isEqualTo(film1.getId());
+    }
+
+    @Test
+    @DisplayName("Фильмы режиссёра — сортировка по лайкам")
+    void getFilmsByDirector_sortedByLikes() {
+        Director director = directorStorage.create(makeDirector());
+        User user = userStorage.create(makeUser());
+
+        Film film1 = makeFilm();
+        film1.setDirectors(Set.of(director));
+        filmStorage.addFilm(film1);
+
+        Film film2 = makeFilm();
+        film2.setDirectors(Set.of(director));
+        filmStorage.addFilm(film2);
+
+        filmStorage.addLike(film2.getId(), user.getId());
+
+        List<Film> films = filmStorage.getFilmsByDirector(director.getId(), "likes");
+
+        assertThat(films).hasSize(2);
+        assertThat(films.get(0).getId()).isEqualTo(film2.getId());
+    }
+
+    private Director makeDirector() {
+        Director director = new Director();
+        director.setName("Режиссер");
+        return director;
     }
 }
