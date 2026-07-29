@@ -33,12 +33,14 @@ public class FilmController {
     @PostMapping
     public Film addFilm(@Valid @RequestBody Film film) {
         filmService.checkGenresAndMpa(film);
+        filmService.checkDirectors(film);
         return filmStorage.addFilm(film);
     }
 
     @PutMapping
     public Film update(@Valid @RequestBody Film film) {
         filmService.checkGenresAndMpa(film);
+        filmService.checkDirectors(film);
         return filmStorage.update(film);
     }
 
@@ -71,5 +73,10 @@ public class FilmController {
         return filmService.getMostLikedFilms(count);
     }
 
-
+    @GetMapping("/director/{directorId}")
+    public Collection<Film> getFilmsByDirector(
+            @PathVariable Long directorId,
+            @RequestParam(defaultValue = "year") String sortBy) {
+        return filmService.getFilmsByDirector(directorId, sortBy);
+    }
 }

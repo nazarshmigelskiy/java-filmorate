@@ -1,3 +1,8 @@
+DELETE FROM directors;
+ALTER TABLE directors ALTER COLUMN id RESTART WITH 1;
+DELETE FROM films;
+ALTER TABLE films ALTER COLUMN id RESTART WITH 1;
+
 MERGE INTO genres (id, name) VALUES (1, 'Комедия');
 MERGE INTO genres (id, name) VALUES (2, 'Драма');
 MERGE INTO genres (id, name) VALUES (3, 'Мультфильм');
