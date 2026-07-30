@@ -1,9 +1,9 @@
 package ru.yandex.practicum.filmorate.controller;
 
+import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
-import ru.yandex.practicum.filmorate.exception.ConditionsNotMetException;
 import ru.yandex.practicum.filmorate.model.Review;
 import ru.yandex.practicum.filmorate.service.ReviewService;
 
@@ -24,9 +24,6 @@ public class ReviewController {
 
     @PutMapping
     public Review updateReview(@RequestBody Review review) {
-        if (review.getReviewId() == null) {
-            throw new ConditionsNotMetException("reviewId не может быть null");
-        }
         return reviewService.updateReview(review);
     }
 
@@ -58,12 +55,12 @@ public class ReviewController {
     }
 
     @DeleteMapping("/{id}/like/{userId}")
-    public void deleteLike(@PathVariable Long id, @PathVariable Long userId) {
+    public void deleteLike(@PathVariable @Positive Long id, @PathVariable @Positive Long userId) {
         reviewService.deleteLike(id, userId);
     }
 
     @DeleteMapping("/{id}/dislike/{userId}")
-    public void deleteDislike(@PathVariable Long id, @PathVariable Long userId) {
+    public void deleteDislike(@PathVariable @Positive Long id, @PathVariable @Positive Long userId) {
         reviewService.deleteDislike(id, userId);
     }
 }

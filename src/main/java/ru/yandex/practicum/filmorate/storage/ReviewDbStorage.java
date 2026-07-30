@@ -8,6 +8,7 @@ import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.Review;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public class ReviewDbStorage extends BaseStorage<Review> implements ReviewStorage {
@@ -67,6 +68,9 @@ public class ReviewDbStorage extends BaseStorage<Review> implements ReviewStorag
     private static final String DELETE_DISLIKE =
             "DELETE FROM ReviewVote WHERE user_id = ? AND review_id = ? AND is_like = FALSE";
 
+    private static final String DELETE_VOTE =
+            "DELETE FROM ReviewVote WHERE user_id = ? AND review_id = ?";
+
     public ReviewDbStorage(JdbcTemplate jdbc, RowMapper<Review> mapper) {
         super(jdbc, mapper);
     }
@@ -85,7 +89,7 @@ public class ReviewDbStorage extends BaseStorage<Review> implements ReviewStorag
     }
 
     @Override
-    public Review updateReview(Review review) {
+    public Optional<Review> updateReview(Review review) {
         update(UPDATE_REVIEW,
                 review.getContent(),
                 review.getIsPositive(),
@@ -99,9 +103,8 @@ public class ReviewDbStorage extends BaseStorage<Review> implements ReviewStorag
     }
 
     @Override
-    public Review getReviewById(Long id) {
-        return findOne(SELECT_REVIEW_BY_ID, id)
-                .orElseThrow(() -> new NotFoundException("Отзыв с id=" + id + " не найден"));
+    public Optional<Review> getReviewById(Long id) {
+        return findOne(SELECT_REVIEW_BY_ID, id);
     }
 
     @Override
@@ -126,11 +129,12 @@ public class ReviewDbStorage extends BaseStorage<Review> implements ReviewStorag
     public void likeReview(Long reviewId, Long userId) {
         Boolean vote = getVote(userId, reviewId);
         if (vote == null) {
-            update(INC_RATING, reviewId);
             jdbc.update(INSERT_LIKE, userId, reviewId);
+            updateRatingWithRollback(reviewId, INC_RATING, DELETE_VOTE, userId, reviewId);
+
         } else if (!vote) {
-            update(INC_RATING_BY_2, reviewId);
             jdbc.update(UPDATE_TO_LIKE, userId, reviewId);
+            updateRatingWithRollback(reviewId, INC_RATING_BY_2, UPDATE_TO_DISLIKE, userId, reviewId);
         }
     }
 
@@ -138,11 +142,12 @@ public class ReviewDbStorage extends BaseStorage<Review> implements ReviewStorag
     public void dislikeReview(Long reviewId, Long userId) {
         Boolean vote = getVote(userId, reviewId);
         if (vote == null) {
-            update(DEC_RATING, reviewId);
             jdbc.update(INSERT_DISLIKE, userId, reviewId);
+            updateRatingWithRollback(reviewId, DEC_RATING, DELETE_VOTE, userId, reviewId);
+
         } else if (vote) {
-            update(DEC_RATING_BY_2, reviewId);
             jdbc.update(UPDATE_TO_DISLIKE, userId, reviewId);
+            updateRatingWithRollback(reviewId, DEC_RATING_BY_2, UPDATE_TO_LIKE, userId, reviewId);
         }
     }
 
@@ -159,6 +164,18 @@ public class ReviewDbStorage extends BaseStorage<Review> implements ReviewStorag
         int rows = jdbc.update(DELETE_DISLIKE, userId, reviewId);
         if (rows > 0) {
             update(INC_RATING, reviewId);
+        }
+    }
+
+    /**
+     * Обновляет рейтинг с возможностью отката
+     */
+    private void updateRatingWithRollback(Long reviewId, String updateSql,
+                                          String rollbackSql, Object... rollbackParams) {
+        int updatedRows = jdbc.update(updateSql, reviewId);
+        if (updatedRows == 0) {
+            jdbc.update(rollbackSql, rollbackParams);
+            throw new NotFoundException("Отзыв с id=" + reviewId + " не найден");
         }
     }
 }
