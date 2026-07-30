@@ -28,13 +28,8 @@ import java.util.Set;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -437,6 +432,35 @@ class FilmControllerTest {
                 .thenThrow(new ValidationException("sortBy может быть только 'year' или 'likes'"));
 
         mockMvc.perform(get("/films/director/1?sortBy=abc"))
+                .andExpect(status().isBadRequest());
+    }
+    // ─── GET /films/common ────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("Общие фильмы у двух пользователей")
+    void getCommonFilms_success() throws Exception {
+        when(filmService.getCommonFilms(1L, 2L)).thenReturn(List.of(validFilm()));
+
+        mockMvc.perform(get("/films/common?userId=1&friendId=2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
+        verify(filmService).getCommonFilms(1L, 2L);
+    }
+
+    @Test
+    @DisplayName("Общие фильмы — пользователь не найден")
+    void getCommonFilms_userNotFound() throws Exception {
+        when(filmService.getCommonFilms(999L, 1L))
+                .thenThrow(new NotFoundException("Пользователь с id 999 не найден"));
+
+        mockMvc.perform(get("/films/common?userId=999&friendId=1"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("Общие фильмы — отрицательный userId")
+    void getCommonFilms_negativeUserId() throws Exception {
+        mockMvc.perform(get("/films/common?userId=-1&friendId=1"))
                 .andExpect(status().isBadRequest());
     }
 }
