@@ -236,12 +236,14 @@ public class FilmDbStorage extends BaseStorage<Film> implements FilmStorage {
     }
 
     public List<Film> getMostLiked(int count, Long genreId, Integer year) {
-        String sql = buildPopularFilmsQuery(genreId, year);
-        List<Film> films = findMany(sql, buildPopularFilmsParams(count, genreId, year));
+        List<Object> params = new ArrayList<>();
+        String sql = buildPopularFilmsQuery(count, genreId, year, params);
+        List<Film> films = findMany(sql, params.toArray());
         return setLikesAndGenresForFilms(films);
     }
 
-    private String buildPopularFilmsQuery(Long genreId, Integer year) {
+    private String buildPopularFilmsQuery(int count, Long genreId, Integer year, List<Object> params) {
+        List<String> whereConditions = new ArrayList<>();
         StringBuilder sql = new StringBuilder(
                 "SELECT f.*, m.name AS mpa_name, COUNT(l.user_id) AS likes_count " +
                         "FROM films f " +
@@ -251,36 +253,22 @@ public class FilmDbStorage extends BaseStorage<Film> implements FilmStorage {
 
         if (genreId != null) {
             sql.append("JOIN film_genres fg ON f.id = fg.film_id ");
-        }
-
-        if (genreId != null) {
-            sql.append("WHERE fg.genre_id = ? ");
-        }
-
-        if (year != null) {
-            if (genreId != null) {
-                sql.append("AND YEAR(f.release_date) = ? ");
-            } else {
-                sql.append("WHERE YEAR(f.release_date) = ? ");
-            }
-        }
-        sql.append("GROUP BY f.id, f.name, f.description, f.release_date, f.duration, f.mpa_id, m.name " +
-                "ORDER BY likes_count DESC " +
-                "LIMIT ?");
-        return sql.toString();
-    }
-
-    private Object[] buildPopularFilmsParams(int count, Long genreId, Integer year) {
-        List<Object> params = new ArrayList<>();
-
-        if (genreId != null) {
+            whereConditions.add("fg.genre_id = ?");
             params.add(genreId);
         }
         if (year != null) {
+            whereConditions.add("YEAR(f.release_date) = ?");
             params.add(year);
         }
+        if (!whereConditions.isEmpty()) {
+            sql.append("WHERE ").append(String.join(" AND ", whereConditions)).append(" ");
+        }
+
+        sql.append("GROUP BY f.id, f.name, f.description, f.release_date, f.duration, f.mpa_id, m.name " +
+                "ORDER BY likes_count DESC " +
+                "LIMIT ?");
         params.add(count);
-        return params.toArray();
+        return sql.toString();
     }
 
     private Map<Long, Set<Genre>> loadGenresForFilms(List<Long> filmIds) {
