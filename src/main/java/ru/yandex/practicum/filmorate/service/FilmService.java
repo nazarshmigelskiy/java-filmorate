@@ -88,5 +88,13 @@ public class FilmService {
                 .orElseThrow(() -> new NotFoundException("Режиссёр с id " + directorId + " не найден"));
         return storage.getFilmsByDirector(directorId, sortBy);
     }
+
+    public Collection<Film> getCommonFilms(Long userId, Long friendId) {
+        userStorage.getById(userId)
+                .orElseThrow(() -> new NotFoundException("Пользователь с id " + userId + " не найден"));
+        userStorage.getById(friendId)
+                .orElseThrow(() -> new NotFoundException("Пользователь с id " + friendId + " не найден"));
+        return storage.getCommonFilms(userId, friendId);
+    }
 }
 

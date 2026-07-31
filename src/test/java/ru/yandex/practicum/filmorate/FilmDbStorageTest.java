@@ -261,4 +261,40 @@ class FilmDbStorageTest {
         director.setName("Режиссер");
         return director;
     }
+
+    @Test
+    @DisplayName("Общие фильмы у двух пользователей")
+    void getCommonFilms() {
+        User user1 = userStorage.create(makeUser());
+        User user2 = makeUser();
+        user2.setEmail("test2@example.com");
+        user2 = userStorage.create(user2);
+        Film film = filmStorage.addFilm(makeFilm());
+
+        filmStorage.addLike(film.getId(), user1.getId());
+        filmStorage.addLike(film.getId(), user2.getId());
+
+        List<Film> common = (List<Film>) filmStorage.getCommonFilms(user1.getId(), user2.getId());
+
+        assertThat(common).hasSize(1);
+        assertThat(common.get(0).getId()).isEqualTo(film.getId());
+    }
+
+    @Test
+    @DisplayName("Общие фильмы — нет общих")
+    void getCommonFilms_noCommon() {
+        User user1 = userStorage.create(makeUser());
+        User user2 = makeUser();
+        user2.setEmail("test2@example.com");
+        user2 = userStorage.create(user2);
+        Film film1 = filmStorage.addFilm(makeFilm());
+        Film film2 = filmStorage.addFilm(makeFilm());
+
+        filmStorage.addLike(film1.getId(), user1.getId());
+        filmStorage.addLike(film2.getId(), user2.getId());
+
+        List<Film> common = (List<Film>) filmStorage.getCommonFilms(user1.getId(), user2.getId());
+
+        assertThat(common).isEmpty();
+    }
 }
