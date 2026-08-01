@@ -13,16 +13,7 @@ import ru.yandex.practicum.filmorate.model.Genre;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 @Repository
 @Primary
@@ -108,6 +99,38 @@ public class FilmDbStorage extends BaseStorage<Film> implements FilmStorage {
                     "(SELECT film_id FROM likes WHERE user_id = ?) " +
                     "AND f.id NOT IN " +
                     "(SELECT film_id FROM likes WHERE user_id = ?)";
+
+    private static final String SEARCH_BY_TITLE =
+            "SELECT f.*, m.name AS mpa_name, COUNT(l.user_id) AS likes_count " +
+                    "FROM films f " +
+                    "LEFT JOIN mpa m ON f.mpa_id = m.id " +
+                    "LEFT JOIN likes l ON f.id = l.film_id " +
+                    "WHERE LOWER(f.name) LIKE LOWER(CONCAT('%', ?, '%')) " +
+                    "GROUP BY f.id, f.name, f.description, f.release_date, f.duration, f.mpa_id, m.name " +
+                    "ORDER BY likes_count DESC";
+
+    private static final String SEARCH_BY_DIRECTOR =
+            "SELECT f.*, m.name AS mpa_name, COUNT(l.user_id) AS likes_count " +
+                    "FROM films f " +
+                    "LEFT JOIN mpa m ON f.mpa_id = m.id " +
+                    "LEFT JOIN likes l ON f.id = l.film_id " +
+                    "LEFT JOIN films_directors fd ON f.id = fd.film_id " +
+                    "LEFT JOIN directors d ON fd.director_id = d.id " +
+                    "WHERE LOWER(d.name) LIKE LOWER(CONCAT('%', ?, '%')) " +
+                    "GROUP BY f.id, f.name, f.description, f.release_date, f.duration, f.mpa_id, m.name " +
+                    "ORDER BY likes_count DESC";
+
+    private static final String SEARCH_BY_TITLE_OR_DIRECTOR =
+            "SELECT f.*, m.name AS mpa_name, COUNT(l.user_id) AS likes_count " +
+                    "FROM films f " +
+                    "LEFT JOIN mpa m ON f.mpa_id = m.id " +
+                    "LEFT JOIN likes l ON f.id = l.film_id " +
+                    "LEFT JOIN films_directors fd ON f.id = fd.film_id " +
+                    "LEFT JOIN directors d ON fd.director_id = d.id " +
+                    "WHERE LOWER(f.name) LIKE LOWER(CONCAT('%', ?, '%')) " +
+                    "OR LOWER(d.name) LIKE LOWER(CONCAT('%', ?, '%')) " +
+                    "GROUP BY f.id, f.name, f.description, f.release_date, f.duration, f.mpa_id, m.name " +
+                    "ORDER BY likes_count DESC";
 
     private final GenreRowMapper genreMapper;
     private final DirectorRowMapper directorMapper;
@@ -359,6 +382,36 @@ public class FilmDbStorage extends BaseStorage<Film> implements FilmStorage {
             films = findMany(GET_FILMS_BY_DIRECTOR_SORTED_BY_YEAR_QUERY, directorId);
         } else {
             films = findMany(GET_FILMS_BY_DIRECTOR_SORTED_BY_LIKES_QUERY, directorId);
+        }
+        return setLikesAndGenresForFilms(films);
+    }
+
+    @Override
+    public Collection<Film> searchFilms(String query, String by) {
+
+        String[] searchFields = by.split(",");
+        boolean searchByTitle = false;
+        boolean searchByDirector = false;
+
+        for (String field : searchFields) {
+            String trimmed = field.trim().toLowerCase();
+            if ("title".equals(trimmed)) {
+                searchByTitle = true;
+            }
+            if ("director".equals(trimmed)) {
+                searchByDirector = true;
+            }
+        }
+        List<Film> films;
+        if (searchByTitle && searchByDirector) {
+            films = findMany(SEARCH_BY_TITLE_OR_DIRECTOR, query, query);
+        } else if (searchByTitle) {
+            films = findMany(SEARCH_BY_TITLE, query);
+        } else if (searchByDirector) {
+            films = findMany(SEARCH_BY_DIRECTOR, query);
+        } else {
+            // Если by не указан или пустой — ищем по названию по умолчанию
+            films = findMany(SEARCH_BY_TITLE, query);
         }
         return setLikesAndGenresForFilms(films);
     }
