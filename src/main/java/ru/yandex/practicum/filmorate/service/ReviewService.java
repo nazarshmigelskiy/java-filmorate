@@ -38,6 +38,7 @@ public class ReviewService {
     }
 
     public void deleteReview(Long id) {
+        getReviewById(id);
         reviewStorage.deleteReview(id);
     }
 
@@ -50,23 +51,27 @@ public class ReviewService {
     }
 
     public void likeReview(Long reviewId, Long userId) {
-        userStorage.getById(userId);
+        userStorage.getById(userId).orElseThrow(() ->
+                new NotFoundException("Пользователь с id: " + userId + " не найден"));
         getReviewById(reviewId);
         reviewStorage.likeReview(reviewId, userId);
     }
 
     public void dislikeReview(Long reviewId, Long userId) {
-        userStorage.getById(userId);
+        userStorage.getById(userId).orElseThrow(() ->
+                new NotFoundException("Пользователь с id: " + userId + " не найден"));
         reviewStorage.dislikeReview(reviewId, userId);
     }
 
     public void deleteLike(Long reviewId, Long userId) {
-        userStorage.getById(userId);
+        userStorage.getById(userId).orElseThrow(() ->
+                new NotFoundException("Пользователь с id: " + userId + " не найден"));
         reviewStorage.deleteLike(reviewId, userId);
     }
 
     public void deleteDislike(Long reviewId, Long userId) {
-        userStorage.getById(userId);
+        userStorage.getById(userId).orElseThrow(() ->
+                new NotFoundException("Пользователь с id: " + userId + " не найден"));
         reviewStorage.deleteDislike(reviewId, userId);
     }
 
