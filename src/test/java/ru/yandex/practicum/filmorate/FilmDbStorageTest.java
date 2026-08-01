@@ -146,10 +146,54 @@ class FilmDbStorageTest {
 
         filmStorage.addLike(film2.getId(), user.getId());
 
-        List<Film> popular = filmStorage.getMostLiked(10);
+        List<Film> popular = filmStorage.getMostLiked(10, null, null);
 
         assertThat(popular).isNotEmpty();
         assertThat(popular.get(0).getId()).isEqualTo(film2.getId());
+    }
+
+    @Test
+    @DisplayName("Популярные фильмы — фильтрация по жанру")
+    void getMostLikedByGenre() {
+        Genre genre1 = new Genre();
+        genre1.setId(1L);
+        Genre genre2 = new Genre();
+        genre2.setId(2L);
+        User user = userStorage.create(makeUser());
+
+        Film filmWithLike = makeFilm();
+        filmWithLike.setGenres(Set.of(genre1));
+        filmStorage.addFilm(filmWithLike);
+        filmStorage.addLike(filmWithLike.getId(), user.getId());
+
+        Film otherFilm = makeFilm();
+        otherFilm.setGenres(Set.of(genre2));
+        filmStorage.addFilm(otherFilm);
+
+        List<Film> popular = filmStorage.getMostLiked(10, 1L, null);
+
+        assertThat(popular).hasSize(1);
+        assertThat(popular.get(0).getId()).isEqualTo(filmWithLike.getId());
+    }
+
+    @Test
+    @DisplayName("Популярные фильмы — фильтрация по году")
+    void getMostLikedByYear() {
+        User user = userStorage.create(makeUser());
+
+        Film film2000 = makeFilm();
+        film2000.setReleaseDate(LocalDate.of(2000, 6, 15));
+        filmStorage.addFilm(film2000);
+        filmStorage.addLike(film2000.getId(), user.getId());
+
+        Film film2001 = makeFilm();
+        film2001.setReleaseDate(LocalDate.of(2001, 1, 1));
+        filmStorage.addFilm(film2001);
+
+        List<Film> popular = filmStorage.getMostLiked(10, null, 2000);
+
+        assertThat(popular).hasSize(1);
+        assertThat(popular.get(0).getId()).isEqualTo(film2000.getId());
     }
 
     @Test
@@ -216,5 +260,41 @@ class FilmDbStorageTest {
         Director director = new Director();
         director.setName("Режиссер");
         return director;
+    }
+
+    @Test
+    @DisplayName("Общие фильмы у двух пользователей")
+    void getCommonFilms() {
+        User user1 = userStorage.create(makeUser());
+        User user2 = makeUser();
+        user2.setEmail("test2@example.com");
+        user2 = userStorage.create(user2);
+        Film film = filmStorage.addFilm(makeFilm());
+
+        filmStorage.addLike(film.getId(), user1.getId());
+        filmStorage.addLike(film.getId(), user2.getId());
+
+        List<Film> common = (List<Film>) filmStorage.getCommonFilms(user1.getId(), user2.getId());
+
+        assertThat(common).hasSize(1);
+        assertThat(common.get(0).getId()).isEqualTo(film.getId());
+    }
+
+    @Test
+    @DisplayName("Общие фильмы — нет общих")
+    void getCommonFilms_noCommon() {
+        User user1 = userStorage.create(makeUser());
+        User user2 = makeUser();
+        user2.setEmail("test2@example.com");
+        user2 = userStorage.create(user2);
+        Film film1 = filmStorage.addFilm(makeFilm());
+        Film film2 = filmStorage.addFilm(makeFilm());
+
+        filmStorage.addLike(film1.getId(), user1.getId());
+        filmStorage.addLike(film2.getId(), user2.getId());
+
+        List<Film> common = (List<Film>) filmStorage.getCommonFilms(user1.getId(), user2.getId());
+
+        assertThat(common).isEmpty();
     }
 }

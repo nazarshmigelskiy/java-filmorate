@@ -52,8 +52,8 @@ public class FilmService {
         storage.deleteFilm(id);
     }
 
-    public Collection<Film> getMostLikedFilms(int count) {
-        return storage.getMostLiked(count);
+    public Collection<Film> getMostLikedFilms(int count, Long genreId, Integer year) {
+        return storage.getMostLiked(count, genreId, year);
     }
 
     public void checkGenresAndMpa(Film film) {
@@ -87,6 +87,14 @@ public class FilmService {
         directorStorage.getById(directorId)
                 .orElseThrow(() -> new NotFoundException("Режиссёр с id " + directorId + " не найден"));
         return storage.getFilmsByDirector(directorId, sortBy);
+    }
+
+    public Collection<Film> getCommonFilms(Long userId, Long friendId) {
+        userStorage.getById(userId)
+                .orElseThrow(() -> new NotFoundException("Пользователь с id " + userId + " не найден"));
+        userStorage.getById(friendId)
+                .orElseThrow(() -> new NotFoundException("Пользователь с id " + friendId + " не найден"));
+        return storage.getCommonFilms(userId, friendId);
     }
 }
 
