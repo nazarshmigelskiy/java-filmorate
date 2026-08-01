@@ -13,7 +13,16 @@ import ru.yandex.practicum.filmorate.model.Genre;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
 @Repository
 @Primary
@@ -99,6 +108,18 @@ public class FilmDbStorage extends BaseStorage<Film> implements FilmStorage {
                     "(SELECT film_id FROM likes WHERE user_id = ?) " +
                     "AND f.id NOT IN " +
                     "(SELECT film_id FROM likes WHERE user_id = ?)";
+    private static final String GET_COMMON_FILMS_QUERY =
+            "SELECT f.*, m.name AS mpa_name, " +
+                    "(SELECT COUNT(*) FROM likes l WHERE l.film_id = f.id) AS likes_count " +
+                    "FROM films f " +
+                    "LEFT JOIN mpa m ON f.mpa_id = m.id " +
+                    "WHERE f.id IN (" +
+                    "SELECT l1.film_id " +
+                    "FROM likes l1 " +
+                    "JOIN likes l2 ON l1.film_id = l2.film_id " +
+                    "WHERE l1.user_id = ? " +
+                    "AND l2.user_id = ?) " +
+                    "ORDER BY likes_count DESC";
 
     private static final String SEARCH_BY_TITLE =
             "SELECT f.*, m.name AS mpa_name, COUNT(l.user_id) AS likes_count " +
@@ -383,6 +404,12 @@ public class FilmDbStorage extends BaseStorage<Film> implements FilmStorage {
         } else {
             films = findMany(GET_FILMS_BY_DIRECTOR_SORTED_BY_LIKES_QUERY, directorId);
         }
+        return setLikesAndGenresForFilms(films);
+    }
+
+    @Override
+    public Collection<Film> getCommonFilms(Long userId, Long friendId) {
+        List<Film> films = findMany(GET_COMMON_FILMS_QUERY, userId, friendId);
         return setLikesAndGenresForFilms(films);
     }
 

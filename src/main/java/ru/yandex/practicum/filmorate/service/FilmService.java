@@ -9,7 +9,11 @@ import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Director;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Genre;
-import ru.yandex.practicum.filmorate.storage.*;
+import ru.yandex.practicum.filmorate.storage.DirectorStorage;
+import ru.yandex.practicum.filmorate.storage.FilmStorage;
+import ru.yandex.practicum.filmorate.storage.GenreStorage;
+import ru.yandex.practicum.filmorate.storage.MPAStorage;
+import ru.yandex.practicum.filmorate.storage.UserStorage;
 
 import java.util.Collection;
 
@@ -83,6 +87,14 @@ public class FilmService {
         directorStorage.getById(directorId)
                 .orElseThrow(() -> new NotFoundException("Режиссёр с id " + directorId + " не найден"));
         return storage.getFilmsByDirector(directorId, sortBy);
+    }
+
+    public Collection<Film> getCommonFilms(Long userId, Long friendId) {
+        userStorage.getById(userId)
+                .orElseThrow(() -> new NotFoundException("Пользователь с id " + userId + " не найден"));
+        userStorage.getById(friendId)
+                .orElseThrow(() -> new NotFoundException("Пользователь с id " + friendId + " не найден"));
+        return storage.getCommonFilms(userId, friendId);
     }
 
     public Collection<Film> searchFilms(String query, String by) {
