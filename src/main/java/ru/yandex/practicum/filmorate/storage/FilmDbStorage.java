@@ -13,16 +13,7 @@ import ru.yandex.practicum.filmorate.model.Genre;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 @Repository
 @Primary
@@ -51,7 +42,7 @@ public class FilmDbStorage extends BaseStorage<Film> implements FilmStorage {
                     "JOIN film_genres fg ON g.id = fg.genre_id " +
                     "WHERE fg.film_id = ? ORDER BY g.id";
     private static final String ADD_LIKE_QUERY =
-            "INSERT INTO likes (film_id, user_id) VALUES (?, ?)";
+            "MERGE INTO likes (film_id, user_id) VALUES (?, ?)";
     private static final String REMOVE_LIKE_QUERY =
             "DELETE FROM likes WHERE film_id = ? AND user_id = ?";
     private static final String GET_LIKES_QUERY =

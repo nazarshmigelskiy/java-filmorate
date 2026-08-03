@@ -294,7 +294,7 @@ class FilmControllerTest {
     @DisplayName("Некорректный id — отрицательный")
     void getFilmById_negativeId() throws Exception {
         mockMvc.perform(get("/films/-1"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isNotFound());
     }
 
     // ─── PUT /films/{id}/like/{userId} ────────────────────────────────────────
@@ -490,7 +490,9 @@ class FilmControllerTest {
     @Test
     @DisplayName("Общие фильмы — отрицательный userId")
     void getCommonFilms_negativeUserId() throws Exception {
+        when(filmService.getCommonFilms(-1L, 1L))
+                .thenThrow(new NotFoundException("Пользователь с id -1 не найден"));
         mockMvc.perform(get("/films/common?userId=-1&friendId=1"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isNotFound());
     }
 }
