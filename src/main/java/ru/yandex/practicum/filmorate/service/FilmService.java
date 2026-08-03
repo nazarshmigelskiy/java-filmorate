@@ -96,15 +96,5 @@ public class FilmService {
                 .orElseThrow(() -> new NotFoundException("Пользователь с id " + friendId + " не найден"));
         return storage.getCommonFilms(userId, friendId);
     }
-
-    public Collection<Film> searchFilms(String query, String by) {
-        if (query == null || query.isBlank()) {
-            throw new ValidationException("Query не может быть пустым");
-        }
-        if (by == null || by.isBlank()) {
-            by = "title";
-        }
-        return storage.searchFilms(query, by);
-    }
 }
 
