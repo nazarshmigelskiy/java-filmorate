@@ -6,13 +6,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import ru.yandex.practicum.filmorate.controller.FilmController;
 import ru.yandex.practicum.filmorate.exception.ConditionsNotMetException;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
+import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.model.MPA;
@@ -26,17 +28,14 @@ import java.util.Set;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(FilmController.class)
+@SpringBootTest
+@AutoConfigureMockMvc
+@DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
 class FilmControllerTest {
 
     @Autowired
@@ -295,7 +294,7 @@ class FilmControllerTest {
     @DisplayName("Некорректный id — отрицательный")
     void getFilmById_negativeId() throws Exception {
         mockMvc.perform(get("/films/-1"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isNotFound());
     }
 
     // ─── PUT /films/{id}/like/{userId} ────────────────────────────────────────
@@ -367,21 +366,21 @@ class FilmControllerTest {
     @Test
     @DisplayName("Список популярных фильмов — дефолтный count")
     void getPopular_defaultCount() throws Exception {
-        when(filmService.getMostLikedFilms(anyInt())).thenReturn(List.of(validFilm()));
+        when(filmService.getMostLikedFilms(anyInt(), any(), any())).thenReturn(List.of(validFilm()));
 
         mockMvc.perform(get("/films/popular"))
                 .andExpect(status().isOk());
-        verify(filmService).getMostLikedFilms(10);
+        verify(filmService).getMostLikedFilms(10, null, null);
     }
 
     @Test
     @DisplayName("Список популярных фильмов — кастомный count")
     void getPopular_customCount() throws Exception {
-        when(filmService.getMostLikedFilms(anyInt())).thenReturn(List.of(validFilm()));
+        when(filmService.getMostLikedFilms(anyInt(), any(), any())).thenReturn(List.of(validFilm()));
 
         mockMvc.perform(get("/films/popular?count=5"))
                 .andExpect(status().isOk());
-        verify(filmService).getMostLikedFilms(5);
+        verify(filmService).getMostLikedFilms(5, null, null);
     }
 
     @Test
@@ -389,6 +388,111 @@ class FilmControllerTest {
     void getPopular_negativeCount() throws Exception {
         mockMvc.perform(get("/films/popular?count=-1"))
                 .andExpect(status().isBadRequest());
-        verify(filmService, never()).getMostLikedFilms(anyInt());
+        verify(filmService, never()).getMostLikedFilms(anyInt(), any(), any());
+    }
+
+    @Test
+    @DisplayName("Популярные с фильтром по жанру")
+    void getPopular_withGenreId() throws Exception {
+        when(filmService.getMostLikedFilms(anyInt(), any(), any())).thenReturn(List.of(validFilm()));
+
+        mockMvc.perform(get("/films/popular?genreId=1"))
+                .andExpect(status().isOk());
+        verify(filmService).getMostLikedFilms(10, 1L, null);
+    }
+
+    @Test
+    @DisplayName("Популярные с фильтром по году")
+    void getPopular_withYear() throws Exception {
+        when(filmService.getMostLikedFilms(anyInt(), any(), any())).thenReturn(List.of(validFilm()));
+
+        mockMvc.perform(get("/films/popular?year=2000"))
+                .andExpect(status().isOk());
+        verify(filmService).getMostLikedFilms(10, null, 2000);
+    }
+
+    @Test
+    @DisplayName("Популярные с фильтром по жанру и году")
+    void getPopular_withGenreIdAndYear() throws Exception {
+        when(filmService.getMostLikedFilms(anyInt(), any(), any())).thenReturn(List.of(validFilm()));
+
+        mockMvc.perform(get("/films/popular?genreId=1&year=2000"))
+                .andExpect(status().isOk());
+        verify(filmService).getMostLikedFilms(10, 1L, 2000);
+    }
+
+    // ─── GET /films/director/{directorId} ─────────────────────────────────────
+
+    @Test
+    @DisplayName("Фильмы режиссёра — сортировка по году")
+    void getFilmsByDirector_sortedByYear() throws Exception {
+        when(filmService.getFilmsByDirector(1L, "year")).thenReturn(List.of(validFilm()));
+
+        mockMvc.perform(get("/films/director/1?sortBy=year"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
+        verify(filmService).getFilmsByDirector(1L, "year");
+    }
+
+    @Test
+    @DisplayName("Фильмы режиссёра — сортировка по лайкам")
+    void getFilmsByDirector_sortedByLikes() throws Exception {
+        when(filmService.getFilmsByDirector(1L, "likes")).thenReturn(List.of(validFilm()));
+
+        mockMvc.perform(get("/films/director/1?sortBy=likes"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
+        verify(filmService).getFilmsByDirector(1L, "likes");
+    }
+
+    @Test
+    @DisplayName("Фильмы режиссёра — режиссёр не найден")
+    void getFilmsByDirector_directorNotFound() throws Exception {
+        when(filmService.getFilmsByDirector(999L, "year"))
+                .thenThrow(new NotFoundException("Режиссёр с id 999 не найден"));
+
+        mockMvc.perform(get("/films/director/999"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("Фильмы режиссёра — некорректный sortBy")
+    void getFilmsByDirector_invalidSortBy() throws Exception {
+        when(filmService.getFilmsByDirector(1L, "abc"))
+                .thenThrow(new ValidationException("sortBy может быть только 'year' или 'likes'"));
+
+        mockMvc.perform(get("/films/director/1?sortBy=abc"))
+                .andExpect(status().isBadRequest());
+    }
+    // ─── GET /films/common ────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("Общие фильмы у двух пользователей")
+    void getCommonFilms_success() throws Exception {
+        when(filmService.getCommonFilms(1L, 2L)).thenReturn(List.of(validFilm()));
+
+        mockMvc.perform(get("/films/common?userId=1&friendId=2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
+        verify(filmService).getCommonFilms(1L, 2L);
+    }
+
+    @Test
+    @DisplayName("Общие фильмы — пользователь не найден")
+    void getCommonFilms_userNotFound() throws Exception {
+        when(filmService.getCommonFilms(999L, 1L))
+                .thenThrow(new NotFoundException("Пользователь с id 999 не найден"));
+
+        mockMvc.perform(get("/films/common?userId=999&friendId=1"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("Общие фильмы — отрицательный userId")
+    void getCommonFilms_negativeUserId() throws Exception {
+        when(filmService.getCommonFilms(-1L, 1L))
+                .thenThrow(new NotFoundException("Пользователь с id -1 не найден"));
+        mockMvc.perform(get("/films/common?userId=-1&friendId=1"))
+                .andExpect(status().isNotFound());
     }
 }

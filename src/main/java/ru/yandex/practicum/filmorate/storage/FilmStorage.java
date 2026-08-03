@@ -18,5 +18,15 @@ public interface FilmStorage {
 
     void removeLike(Long filmId, Long userId);
 
-    Collection<Film> getMostLiked(int count);
+    Collection<Film> getMostLiked(int count, Long genreId, Integer year);
+
+    Collection<Film> getFilmsByDirector(Long directorId, String sortBy);
+
+    Collection<Film> getRecommendations(Long userId);
+
+    void deleteFilm(Long id);
+
+    Collection<Film> getCommonFilms(Long userId, Long friendId);
+
+    Collection<Film> searchFilms(String query, String by);
 }

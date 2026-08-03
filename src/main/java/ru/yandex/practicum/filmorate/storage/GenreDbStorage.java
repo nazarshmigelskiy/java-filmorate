@@ -5,6 +5,8 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 import ru.yandex.practicum.filmorate.model.Genre;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,5 +27,15 @@ public class GenreDbStorage extends BaseStorage<Genre> implements GenreStorage {
     @Override
     public Optional<Genre> getById(Long id) {
         return findOne(FIND_BY_ID_QUERY, id);
+    }
+
+    @Override
+    public List<Long> findExistingIds(Collection<Long> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
+        String sql = "SELECT id FROM genres WHERE id IN (" + placeholders + ")";
+        return jdbc.queryForList(sql, Long.class, ids.toArray());
     }
 }

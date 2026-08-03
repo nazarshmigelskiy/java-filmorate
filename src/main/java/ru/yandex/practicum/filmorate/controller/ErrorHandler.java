@@ -32,21 +32,21 @@ public class ErrorHandler {
     @ResponseStatus(HttpStatus.NOT_FOUND)
     @ExceptionHandler
     public ErrorResponse handleNotFound(NotFoundException e) {
-        log.warn("Объект не найден: {}", e.getMessage());
+        log.warn("Объект не найден: {}", e.getMessage(), e);
         return new ErrorResponse("Объект не найден", e.getMessage());
     }
 
     @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
     @ExceptionHandler
     public ErrorResponse handleConditionsNotMet(ConditionsNotMetException e) {
-        log.warn("Нарушена логика приложения: {}", e.getMessage());
+        log.warn("Нарушена логика приложения: {}", e.getMessage(), e);
         return new ErrorResponse("Нарушение логики приложения", e.getMessage());
     }
 
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     @ExceptionHandler
     public ErrorResponse handleValidationException(ValidationException e) {
-        log.warn("Не заполнены необходимые поля: {}", e.getMessage());
+        log.warn("Не заполнены необходимые поля: {}", e.getMessage(), e);
         return new ErrorResponse("Не заполнены необходимые поля", e.getMessage());
     }
 
@@ -60,7 +60,7 @@ public class ErrorHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     @ExceptionHandler
     public ErrorResponse handleConstraintViolation(ConstraintViolationException e) {
-        log.warn("Некорректный параметр запроса: {}", e.getMessage());
+        log.warn("Некорректный параметр запроса: {}", e.getMessage(), e);
         return new ErrorResponse("Некорректный параметр", e.getMessage());
     }
 }
