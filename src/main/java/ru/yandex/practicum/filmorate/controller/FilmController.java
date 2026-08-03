@@ -52,25 +52,25 @@ public class FilmController {
     }
 
     @GetMapping("/{id}")
-    public Film getById(@PathVariable @Positive Long id) {
+    public Film getById(@PathVariable Long id) {
         return filmStorage.getById(id).orElseThrow(() -> new NotFoundException("Фильм не найден."));
     }
 
     @PutMapping("/{id}/like/{userId}")
-    public Film addLike(@PathVariable @Positive Long id,
-                        @PathVariable @Positive Long userId) {
+    public Film addLike(@PathVariable Long id,
+                        @PathVariable Long userId) {
         return filmService.addLike(userId, id);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteFilm(@PathVariable @Positive Long id) {
+    public void deleteFilm(@PathVariable Long id) {
         filmService.deleteFilm(id);
     }
 
     @DeleteMapping("/{id}/like/{userId}")
-    public Film deleteLike(@PathVariable @Positive Long id,
-                           @PathVariable @Positive Long userId) {
+    public Film deleteLike(@PathVariable Long id,
+                           @PathVariable Long userId) {
         return filmService.removeLike(userId, id);
     }
 
@@ -90,8 +90,8 @@ public class FilmController {
     }
 
     @GetMapping("/common")
-    public Collection<Film> getCommonFilms(@RequestParam @Positive Long userId,
-                                           @RequestParam @Positive Long friendId) {
+    public Collection<Film> getCommonFilms(@RequestParam Long userId,
+                                           @RequestParam Long friendId) {
         return filmService.getCommonFilms(userId, friendId);
     }
 

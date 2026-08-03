@@ -238,7 +238,7 @@ class UserControllerTest {
     @DisplayName("Некорректный id — отрицательный")
     void getUserById_negativeId() throws Exception {
         mockMvc.perform(get("/users/-1"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isNotFound());
     }
 
     // ─── PUT /users/{id}/friends/{friendId} ───────────────────────────────────

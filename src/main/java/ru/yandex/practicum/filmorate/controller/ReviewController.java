@@ -1,7 +1,6 @@
 package ru.yandex.practicum.filmorate.controller;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
@@ -58,12 +57,12 @@ public class ReviewController {
     }
 
     @DeleteMapping("/{id}/like/{userId}")
-    public void deleteLike(@PathVariable @Positive Long id, @PathVariable @Positive Long userId) {
+    public void deleteLike(@PathVariable  Long id, @PathVariable  Long userId) {
         reviewService.deleteLike(id, userId);
     }
 
     @DeleteMapping("/{id}/dislike/{userId}")
-    public void deleteDislike(@PathVariable @Positive Long id, @PathVariable @Positive Long userId) {
+    public void deleteDislike(@PathVariable  Long id, @PathVariable  Long userId) {
         reviewService.deleteDislike(id, userId);
     }
 }
