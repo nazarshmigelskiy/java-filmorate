@@ -13,6 +13,9 @@ import ru.yandex.practicum.filmorate.storage.MPAStorage;
 import ru.yandex.practicum.filmorate.storage.UserStorage;
 
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -55,23 +58,33 @@ public class FilmService {
 
     public void checkGenresAndMpa(Film film) {
         if (film.getMpa() != null) {
-            mpaStorage.getById(film.getMpa().getId())
-                    .orElseThrow(() -> new NotFoundException("MPA с id " + film.getMpa().getId() + " не найден"));
+            Long mpaId = film.getMpa().getId();
+            mpaStorage.getById(mpaId)
+                    .orElseThrow(() -> new NotFoundException("MPA с id " + mpaId + " не найден"));
         }
-        if (film.getGenres() != null) {
-            for (Genre genre : film.getGenres()) {
-                genreStorage.getById(genre.getId())
-                        .orElseThrow(() -> new NotFoundException("Жанр с id " + genre.getId() + " не найден"));
-            }
+        if (film.getGenres() == null || film.getGenres().isEmpty()) {
+            return;
+        }
+        Set<Long> requested = film.getGenres().stream()
+                .map(Genre::getId)
+                .collect(Collectors.toSet());
+        requested.removeAll(genreStorage.findExistingIds(requested));
+        if (!requested.isEmpty()) {
+            throw new NotFoundException("Жанры не найдены: " + requested);
         }
     }
 
     public void checkDirectors(Film film) {
-        if (film.getDirectors() != null) {
-            for (Director director : film.getDirectors()) {
-                directorStorage.getById(director.getId())
-                        .orElseThrow(() -> new NotFoundException("Режиссер с id " + director.getId() + " не найден"));
-            }
+        if (film.getDirectors() == null || film.getDirectors().isEmpty()) {
+            return;
+        }
+        Set<Long> requested = film.getDirectors().stream()
+                .map(Director::getId)
+                .collect(Collectors.toSet());
+        Set<Long> existing = new HashSet<>(directorStorage.findExistingIds(requested));
+        requested.removeAll(existing);
+        if (!requested.isEmpty()) {
+            throw new NotFoundException("Режиссёры не найдены: " + requested);
         }
     }
 

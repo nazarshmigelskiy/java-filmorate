@@ -5,6 +5,8 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 import ru.yandex.practicum.filmorate.model.Director;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,6 +25,16 @@ public class DirectorDbStorage extends BaseStorage<Director> implements Director
     @Override
     public List<Director> getAll() {
         return findMany(FIND_ALL_QUERY);
+    }
+
+    @Override
+    public List<Long> findExistingIds(Collection<Long> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
+        String sql = "SELECT id FROM directors WHERE id IN (" + placeholders + ")";
+        return jdbc.queryForList(sql, Long.class, ids.toArray());
     }
 
     @Override
@@ -47,4 +59,6 @@ public class DirectorDbStorage extends BaseStorage<Director> implements Director
     public void delete(Long id) {
         delete(DELETE_QUERY, id);
     }
+
+
 }

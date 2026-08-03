@@ -2,19 +2,15 @@ package ru.yandex.practicum.filmorate.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import ru.yandex.practicum.filmorate.model.Review;
 import ru.yandex.practicum.filmorate.service.ReviewService;
 
 import java.util.List;
 
-@Slf4j
 @RestController
 @RequestMapping("/reviews")
 @RequiredArgsConstructor
-@Validated
 public class ReviewController {
 
     private final ReviewService reviewService;
@@ -42,7 +38,7 @@ public class ReviewController {
     @GetMapping
     public List<Review> getReviews(
             @RequestParam(required = false) Long filmId,
-            @RequestParam(required = false, defaultValue = "10") Integer count) {
+            @RequestParam(defaultValue = "10") Integer count) {
         return reviewService.getReviews(filmId, count);
     }
 
@@ -57,12 +53,12 @@ public class ReviewController {
     }
 
     @DeleteMapping("/{id}/like/{userId}")
-    public void deleteLike(@PathVariable  Long id, @PathVariable  Long userId) {
+    public void deleteLike(@PathVariable Long id, @PathVariable Long userId) {
         reviewService.deleteLike(id, userId);
     }
 
     @DeleteMapping("/{id}/dislike/{userId}")
-    public void deleteDislike(@PathVariable  Long id, @PathVariable  Long userId) {
+    public void deleteDislike(@PathVariable Long id, @PathVariable Long userId) {
         reviewService.deleteDislike(id, userId);
     }
 }
